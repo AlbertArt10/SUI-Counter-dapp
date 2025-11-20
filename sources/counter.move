@@ -10,8 +10,10 @@ module counter::counter {
 
     use sui::object::{UID, ID};
     use sui::tx_context::TxContext;
+    use sui::tx_context;
     use sui::transfer;
     use sui::event;
+    use sui::clock::{Clock, timestamp_ms};
 
     //
     // ─────────────────────────────────────────────────────────────
@@ -19,7 +21,6 @@ module counter::counter {
     // ─────────────────────────────────────────────────────────────
     //
 
-    #[allow(unused_field)]
     public struct Counter has key {
         id: UID,
         owner: address,
@@ -27,14 +28,12 @@ module counter::counter {
         created_at: u64,
     }
 
-    #[allow(unused_field)]
     public struct CounterCreated has copy, drop {
         owner: address,
         counter_id: ID,
         created_at: u64,
     }
 
-    #[allow(unused_field)]
     public struct CounterIncremented has copy, drop {
         owner: address,
         counter_id: ID,
@@ -51,19 +50,40 @@ module counter::counter {
 
     //
     // ─────────────────────────────────────────────────────────────
-    //   FUNCTION SIGNATURES (skeleton)
+    //   FUNCTIONS
     // ─────────────────────────────────────────────────────────────
     //
 
-    public entry fun create_counter(_ctx: &mut TxContext) {
-        // TODO implement next step
+    /// Create a counter with real timestamp from the global Clock (object 0x6)
+    public entry fun create_counter(clock: &Clock, ctx: &mut TxContext) {
+        use sui::object;
+
+        let sender = tx_context::sender(ctx);
+
+        // Create the counter object
+        let counter = Counter {
+            id: object::new(ctx),
+            owner: sender,
+            value: 0,
+            created_at: timestamp_ms(clock),   // REAL TIMESTAMP in ms
+        };
+
+        // Emit event
+        event::emit(CounterCreated {
+            owner: sender,
+            counter_id: object::id(&counter),
+            created_at: counter.created_at,
+        });
+
+        // Give ownership to the sender
+        transfer::transfer(counter, sender);
     }
 
     public entry fun increment(_counter: &mut Counter, _ctx: &TxContext) {
         // TODO implement next step
     }
 
-    public fun get_value(_counter: &Counter): u64 {
-        0
+    public fun get_value(counter: &Counter): u64 {
+        counter.value
     }
 }
