@@ -21,6 +21,7 @@ module counter::counter {
     // ─────────────────────────────────────────────────────────────
     //
 
+    // Main counter object
     public struct Counter has key {
         id: UID,
         owner: address,
@@ -28,12 +29,14 @@ module counter::counter {
         created_at: u64,
     }
 
+    // Event for counter creation
     public struct CounterCreated has copy, drop {
         owner: address,
         counter_id: ID,
         created_at: u64,
     }
 
+    // Event for counter increment
     public struct CounterIncremented has copy, drop {
         owner: address,
         counter_id: ID,
@@ -46,6 +49,7 @@ module counter::counter {
     // ─────────────────────────────────────────────────────────────
     //
 
+    // Only the owner can increment
     const E_NOT_OWNER: u64 = 1;
 
     //
@@ -54,35 +58,54 @@ module counter::counter {
     // ─────────────────────────────────────────────────────────────
     //
 
-    /// Create a counter with real timestamp from the global Clock (object 0x6)
+    // Creates a new counter
     public entry fun create_counter(clock: &Clock, ctx: &mut TxContext) {
         use sui::object;
 
         let sender = tx_context::sender(ctx);
 
-        // Create the counter object
+        // Build the counter object
         let counter = Counter {
             id: object::new(ctx),
             owner: sender,
             value: 0,
-            created_at: timestamp_ms(clock),   // REAL TIMESTAMP in ms
+            created_at: timestamp_ms(clock),
         };
 
-        // Emit event
+        // Emit creation event
         event::emit(CounterCreated {
             owner: sender,
             counter_id: object::id(&counter),
             created_at: counter.created_at,
         });
 
-        // Give ownership to the sender
+        // Transfer to caller
         transfer::transfer(counter, sender);
     }
 
-    public entry fun increment(_counter: &mut Counter, _ctx: &TxContext) {
-        // TODO implement next step
+    // Increments the counter
+    public entry fun increment(counter: &mut Counter, ctx: &TxContext) {
+        use sui::object;
+
+        let sender = tx_context::sender(ctx);
+
+        // Check owner
+        if (sender != counter.owner) {
+            abort E_NOT_OWNER
+        };
+
+        // Update value
+        counter.value = counter.value + 1;
+
+        // Emit increment event
+        event::emit(CounterIncremented {
+            owner: sender,
+            counter_id: object::id(counter),
+            new_value: counter.value,
+        });
     }
 
+    // Returns the current value
     public fun get_value(counter: &Counter): u64 {
         counter.value
     }
